@@ -14,7 +14,7 @@
  *       자동으로 활성화되도록 만들어 두었습니다.
  */
 
-const API_BASE = "http://localhost:8000";
+const API_BASE = "https://reelio-4bzc.onrender.com";
 
 // ── 다운로드 폼 관련 요소 ──
 const form = document.getElementById("downloadForm");
