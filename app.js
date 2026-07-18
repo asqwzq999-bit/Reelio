@@ -105,59 +105,24 @@ function formatDuration(seconds) {
  * "다운로드 <라벨>" 형태의 버튼 하나를 만들어 반환합니다.
  */
 /**
- * 파일을 fetch로 직접 받아 blob으로 만든 뒤 강제로 다운로드시킵니다.
- * CDN이 교차 출처(CORS) 요청을 허용하는 경우에만 성공하며, 성공하면 새 탭이
- * 뜨지 않고 바로 다운로드됩니다. 막혀 있으면 false를 반환해서 호출부가
- * 예전 방식(새 탭에서 열기)으로 대체할 수 있게 합니다.
+ * 백엔드의 /api/download 엔드포인트를 거쳐서 다운로드시킵니다. 백엔드가 원본
+ * CDN 파일을 대신 받아 스트리밍으로 전달하면서 강제 다운로드 헤더를 붙여주기
+ * 때문에, CDN이 교차 출처(CORS) 다운로드를 막아둔 경우에도 항상 바로 저장됩니다.
  */
-async function triggerBlobDownload(url, filename) {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 60000); // 영상 용량이 클 수 있어 60초로 넉넉하게
-  try {
-    const resp = await fetch(url, { signal: controller.signal });
-    if (!resp.ok) return false;
-    const blob = await resp.blob();
-    const blobUrl = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = blobUrl;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(blobUrl), 30000);
-    return true;
-  } catch (err) {
-    return false; // CORS 차단, 타임아웃 등으로 실패한 경우
-  } finally {
-    clearTimeout(timeoutId);
-  }
+function buildProxyDownloadUrl(originalUrl, filename) {
+  const params = new URLSearchParams({ url: originalUrl, filename });
+  return `${API_BASE}/api/download?${params.toString()}`;
 }
 
 function makeDownloadButton(label, url, extraClass) {
+  const ext = extraClass === "mp3" ? "mp3" : "mp4";
+  const filename = `reelio_${Date.now()}.${ext}`;
+
   const a = document.createElement("a");
-  a.href = url; // 자바스크립트가 막힌 환경 등을 위한 기본 폴백
+  a.href = buildProxyDownloadUrl(url, filename); // 서버가 스트리밍하며 강제 다운로드 헤더를 붙여줌
   a.rel = "noopener noreferrer";
   a.className = "dl-btn" + (extraClass ? ` ${extraClass}` : "");
   a.textContent = `⬇ ${label}`;
-
-  a.addEventListener("click", async (e) => {
-    e.preventDefault();
-    const original = a.textContent;
-    a.textContent = "⏳ 다운로드 중...";
-    a.style.pointerEvents = "none";
-
-    const ext = extraClass === "mp3" ? "mp3" : "mp4";
-    const filename = `downclip_${Date.now()}.${ext}`;
-    const success = await triggerBlobDownload(url, filename);
-
-    a.textContent = original;
-    a.style.pointerEvents = "";
-
-    if (!success) {
-      // 직접 다운로드가 막힌 CDN → 예전처럼 새 탭에서 열어서 사용자가 저장하게 함
-      window.open(url, "_blank", "noopener,noreferrer");
-    }
-  });
 
   return a;
 }

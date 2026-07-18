@@ -25,6 +25,7 @@ from urllib.parse import urlparse, urlencode
 
 import httpx
 from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -817,6 +818,42 @@ async def extract_douyin(client: httpx.AsyncClient, url: str) -> ExtractResult:
 @app.get("/")
 async def root():
     return {"status": "ok", "message": "워터마크 없는 영상 추출 API가 정상 동작 중입니다."}
+
+
+@app.get("/api/download")
+async def proxy_download(
+    request: Request,
+    url: str = Query(..., description="다운로드할 원본 CDN 파일 URL"),
+    filename: str = Query("download.mp4", description="사용자에게 보여줄 파일명"),
+):
+    """
+    원본 CDN이 교차 출처(CORS) 다운로드를 막아둔 경우, 프론트엔드에서 직접
+    받지 못하고 새 탭으로 열리는 문제가 생깁니다. 이 엔드포인트는 저희 서버가
+    대신 파일을 받아 그대로 흘려보내면서(streaming) 강제 다운로드 헤더를 붙여줍니다.
+    메모리에 파일 전체를 올리지 않고 청크 단위로 전달해, 무료 요금제의 제한된
+    RAM(512MB) 안에서도 안전하게 동작합니다.
+    """
+    client_ip = request.client.host if request.client else "unknown"
+    check_rate_limit(client_ip)
+
+    if not url.startswith("http://") and not url.startswith("https://"):
+        raise HTTPException(status_code=400, detail="유효하지 않은 URL입니다.")
+
+    safe_filename = re.sub(r'[\\/*?:"<>|]', "_", filename) or "download.mp4"
+
+    async def stream_upstream():
+        async with httpx.AsyncClient(timeout=60) as client:
+            async with client.stream("GET", url, headers=get_random_headers()) as resp:
+                if resp.status_code != 200:
+                    raise HTTPException(status_code=502, detail="원본 파일을 가져오지 못했습니다.")
+                async for chunk in resp.aiter_bytes(chunk_size=64 * 1024):
+                    yield chunk
+
+    return StreamingResponse(
+        stream_upstream(),
+        media_type="application/octet-stream",
+        headers={"Content-Disposition": f'attachment; filename="{safe_filename}"'},
+    )
 
 
 @app.get("/api/extract", response_model=ExtractResult)
