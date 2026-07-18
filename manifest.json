@@ -1,0 +1,21 @@
+{
+  "name": "Reelio - TikTok Video Downloader",
+  "short_name": "Reelio",
+  "description": "Download TikTok, Douyin, and Xiaohongshu videos without watermark, for free.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "icons": [
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "/favicon-mascot.png",
+      "sizes": "64x64",
+      "type": "image/png"
+    }
+  ]
+}
