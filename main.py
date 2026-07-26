@@ -326,7 +326,15 @@ async def extract_tiktok(client: httpx.AsyncClient, url: str) -> ExtractResult:
         if not item_struct:
             default_scope = data.get("__DEFAULT_SCOPE__")
             scope_keys = list(default_scope.keys()) if isinstance(default_scope, dict) else None
-            print(f"[틱톡] itemStruct를 찾지 못함. __DEFAULT_SCOPE__ 최상위 키: {scope_keys}", flush=True)
+            title_match = re.search(r"<title>(.*?)</title>", html)
+            page_title = title_match.group(1) if title_match else None
+            print(
+                f"[틱톡] itemStruct를 찾지 못함. "
+                f"__DEFAULT_SCOPE__ 최상위 키: {scope_keys} / "
+                f"페이지 제목: {page_title!r} / "
+                f"HTML 길이: {len(html)}자",
+                flush=True,
+            )
             raise HTTPException(
                 status_code=500,
                 detail="TikTok 데이터 파싱 실패: itemStruct를 찾지 못했습니다 (사이트 구조 변경 가능성).",
