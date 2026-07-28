@@ -202,7 +202,7 @@ def find_first_key(obj, target_key: str):
     return None
 
 
-def label_as_mp4_variants(urls_with_bitrate: list, max_count: int = 4, mirrors_per_resolution: int = 2) -> list:
+def label_as_mp4_variants(urls_with_bitrate: list, max_count: int = 3, mirrors_per_resolution: int = 2) -> list:
     """
     (url, bitrate, width, height) 튜플 목록을 받아 화질별로 라벨링합니다.
     실제 해상도 숫자 대신, 벤치마킹 사이트들과 같은 방식으로 가장 높은 비트레이트

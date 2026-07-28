@@ -117,12 +117,13 @@ function buildProxyDownloadUrl(originalUrl, filename) {
 function makeDownloadButton(label, url, extraClass) {
   const ext = extraClass === "mp3" ? "mp3" : "mp4";
   const filename = `reelio_${Date.now()}.${ext}`;
+  const downloadWord = (TRANSLATIONS[currentLang] && TRANSLATIONS[currentLang].submit_btn) || "Download";
 
   const a = document.createElement("a");
   a.href = buildProxyDownloadUrl(url, filename); // 서버가 스트리밍하며 강제 다운로드 헤더를 붙여줌
   a.rel = "noopener noreferrer";
   a.className = "dl-btn" + (extraClass ? ` ${extraClass}` : "");
-  a.textContent = `⬇ ${label}`;
+  a.textContent = `⬇ ${downloadWord} ${label}`;
 
   return a;
 }
