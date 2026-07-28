@@ -202,13 +202,13 @@ def find_first_key(obj, target_key: str):
     return None
 
 
-def label_as_mp4_variants(urls_with_bitrate: list, max_count: int = 3, mirrors_per_resolution: int = 2) -> list:
+def label_as_mp4_variants(urls_with_bitrate: list, max_count: int = 4, mirrors_per_resolution: int = 2) -> list:
     """
     (url, bitrate, width, height) 튜플 목록을 받아 화질별로 라벨링합니다.
-    width/height가 있으면 "1920x1080"처럼 실제 해상도로 표시합니다. 같은 해상도라도
-    백업 서버(미러) 링크는 해상도당 최대 mirrors_per_resolution개까지 살려둡니다
-    (하나가 느리거나 막혔을 때 대안으로 쓸 수 있어서요). 미러는 "1920x1080 (백업2)"처럼 표시됩니다.
-    width/height 정보가 없는 경우에만 "MP4 HD" / "MP4 [1]" 방식으로 대체합니다.
+    실제 해상도 숫자 대신, 벤치마킹 사이트들과 같은 방식으로 가장 높은 비트레이트
+    1개는 "MP4 HD", 나머지는 "MP4 [1]", "MP4 [2]"...로 표시합니다. 화질이 실제로
+    같아도(백업 서버 등) 해상도당 최대 mirrors_per_resolution개까지는 살려둡니다
+    (하나가 느리거나 막혔을 때 대안으로 쓸 수 있어서요).
     url 기준 중복도 제거하며, 버튼이 너무 많아지지 않도록 전체 최대 max_count개까지만 반환합니다.
     """
     seen_urls = set()
@@ -241,33 +241,9 @@ def label_as_mp4_variants(urls_with_bitrate: list, max_count: int = 3, mirrors_p
     final_list.sort(key=lambda x: x[1] or 0, reverse=True)
     final_list = final_list[:max_count]
 
-    # 같은 해상도가 여러 개일 때: 비트레이트가 실제로 다르면(=다른 인코딩) 그
-    # 값을 보여주고, 비트레이트까지 같으면(=진짜 동일 파일의 다른 서버 사본)
-    # "미러 서버"라고 정직하게 표시합니다. 겉만 다르고 속은 같은데 다른 화질인
-    # 것처럼 보이지 않도록 하기 위함입니다.
-    bitrates_by_resolution: dict = {}
-    for u, b, w, h in final_list:
-        if w and h:
-            bitrates_by_resolution.setdefault((w, h), set()).add(b)
-
-    resolution_seen_count: dict = {}
     result = []
-    mirror_idx = 1
     for i, (u, b, w, h) in enumerate(final_list):
-        if w and h:
-            key = (w, h)
-            resolution_seen_count[key] = resolution_seen_count.get(key, 0) + 1
-            n = resolution_seen_count[key]
-            bitrate_varies = len(bitrates_by_resolution.get(key, set())) > 1
-            if n == 1:
-                label = f"{w}x{h}"
-            elif bitrate_varies and b:
-                label = f"{w}x{h} · {b / 1_000_000:.1f}Mbps"
-            else:
-                label = f"{w}x{h} [{n}]"
-        else:
-            label = "MP4 HD" if i == 0 else f"MP4 [{mirror_idx}]"
-            mirror_idx += 1
+        label = "MP4 HD" if i == 0 else f"MP4 [{i}]"
         result.append(VideoQuality(label=label, url=u, bitrate=b, width=w, height=h))
     return result
 
@@ -295,6 +271,12 @@ async def extract_tiktok(client: httpx.AsyncClient, url: str) -> ExtractResult:
         timeout=15,
     )
     if resp.status_code != 200:
+        print(
+            f"[틱톡] 페이지 요청 실패. status={resp.status_code} / "
+            f"요청 URL: {final_url} / "
+            f"응답 본문 앞부분: {resp.text[:500]!r}",
+            flush=True,
+        )
         raise HTTPException(status_code=502, detail=f"TikTok 페이지 요청 실패 (status={resp.status_code})")
 
     html = resp.text
